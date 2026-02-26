@@ -1,0 +1,49 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+
+# ======================
+# Virtual environments
+# ======================
+.venv/
+venv/
+env/
+
+# ======================
+# Airflow local artifacts
+# ======================
+airflow-local/logs/
+airflow-local/config/airflow.cfg
+airflow-local/plugins/__pycache__/
+
+# ======================
+# MLflow artifacts (UI data lives in Docker volume)
+# ======================
+mlruns/
+mlflow.db
+
+# ======================
+# Docker
+# ======================
+*.log
+docker-compose.override.yml
+
+# ======================
+# OS / Editor
+# ======================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ======================
+# Secrets / env files
+# ======================
+.env
+.env.*
