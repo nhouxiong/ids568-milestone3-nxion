@@ -333,5 +333,22 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  mlflow:
+    image: python:3.11-slim
+    container_name: mlflow
+    command: >
+      bash -c "pip install mlflow &&
+               mlflow server
+               --backend-store-uri sqlite:///mlflow/mlflow.db
+               --default-artifact-root /mlflow/artifacts
+               --host 0.0.0.0
+               --port 5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    restart: always
+
 volumes:
   postgres-db-volume:
+  mlflow-data:
