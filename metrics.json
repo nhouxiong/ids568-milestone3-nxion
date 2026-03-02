@@ -1,0 +1,11 @@
+{
+  "run_id": "1aa7c906fdd24df286e1f58e663badaa",
+  "accuracy": 0.9,
+  "f1_score": 0.8997,
+  "training_time_seconds": 0.12,
+  "n_estimators": 200,
+  "max_depth": null,
+  "min_samples_split": 2,
+  "seed": 42,
+  "test_size": 0.2
+}

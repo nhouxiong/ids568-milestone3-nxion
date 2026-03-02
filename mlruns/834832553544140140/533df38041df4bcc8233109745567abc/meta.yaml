@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/luumi/Development/ids568-milestone3-nxion/mlruns/834832553544140140/533df38041df4bcc8233109745567abc/artifacts
+end_time: 1772479993514
+entry_point_name: ''
+experiment_id: '834832553544140140'
+lifecycle_stage: active
+run_id: 533df38041df4bcc8233109745567abc
+run_name: learned-lynx-738
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1772479990058
+status: 3
+tags: []
+user_id: luumi

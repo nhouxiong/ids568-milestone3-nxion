@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/luumi/Development/ids568-milestone3-nxion/mlruns/834832553544140140/models/m-eb8228fe49c54598a3c5c40cd8b80af5/artifacts
+creation_timestamp: 1772479487066
+experiment_id: '834832553544140140'
+last_updated_timestamp: 1772479491554
+model_id: m-eb8228fe49c54598a3c5c40cd8b80af5
+model_type: null
+name: model
+source_run_id: 88821a2861db45f0bf96978949bf6251
+status: 2
+status_message: null
