@@ -1,0 +1,81 @@
+name: Train and Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Job 1: Train the model
+  train:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.train.outputs.run_id }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run training
+        id: train
+        run: |
+          python train.py
+          echo "run_id=$(cat run_id.txt)" >> $GITHUB_OUTPUT
+  
+  # Job 2: Validate model quality
+  validate:
+    needs: train
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Validate model
+        run: |
+          python model_validation.py \
+            --run-id ${{ needs.train.outputs.run_id }} \
+            --min-accuracy 0.90
+      
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: validation_report.json
+  
+  # Job 3: Register model (only on main branch)
+  register:
+    needs: [train, validate]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Register model
+        run: python register_model.py --run-id ${{ needs.train.outputs.run_id }}
