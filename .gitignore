@@ -46,4 +46,4 @@ Thumbs.db
 # Secrets / env files
 # ======================
 .env
-.env.*
+.env.*.venv/
