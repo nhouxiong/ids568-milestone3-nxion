@@ -25,7 +25,7 @@ airflow-local/plugins/__pycache__/
 # ======================
 # MLflow artifacts (UI data lives in Docker volume)
 # ======================
-mlruns/
+mlflow_local/mlruns/
 mlflow.db
 
 # ======================

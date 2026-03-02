@@ -1,118 +1,121 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
-import os
 
-import mlflow
 
+# Default arguments applied to all tasks
 default_args = {
-    "owner": "mlops",
-    "retries": 2,
-    "retry_delay": timedelta(minutes=5),
+    'owner': 'mlops',
+    'depends_on_past': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=1),
 }
 
-# IMPORTANT: inside docker compose network, use service name "mlflow"
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-MLFLOW_EXPERIMENT = os.getenv("MLFLOW_EXPERIMENT", "train_pipeline")
 
 def preprocess_data(**context):
-    """Task 1: Load and preprocess training data."""
-    import pandas as pd
+    """Task 1: Simulate data preprocessing."""
+    print("=" * 50)
+    print("PREPROCESS_DATA: Starting data preprocessing...")
+    
+    # Simulate preprocessing work
+    n_samples = 1000
+    data_path = "/tmp/processed_data.csv"
+    
+    print(f"  - Loaded {n_samples} samples")
+    print(f"  - Cleaned missing values")
+    print(f"  - Saved to {data_path}")
+    print("PREPROCESS_DATA: Complete!")
+    print("=" * 50)
+    
+    # Return value is automatically pushed to XCom
+    return {'data_path': data_path, 'n_samples': n_samples}
 
-    df = pd.read_csv("/data/raw/dataset.csv")
-    df_clean = df.dropna().reset_index(drop=True)
-
-    output_path = "/data/processed/train.csv"
-    df_clean.to_csv(output_path, index=False)
-
-    return {"data_path": output_path, "n_samples": len(df_clean)}
 
 def train_model(**context):
-    """Task 2: Train model with MLflow tracking."""
-    ti = context["ti"]
-    data_info = ti.xcom_pull(task_ids="preprocess_data")
+    """Task 2: Simulate model training using data from Task 1."""
+    print("=" * 50)
+    print("TRAIN_MODEL: Starting model training...")
+    
+    # Pull results from upstream task via XCom
+    ti = context['ti']
+    preprocess_result = ti.xcom_pull(task_ids='preprocess_data')
+    
+    if preprocess_result:
+        print(f"  - Received from preprocess: {preprocess_result}")
+        data_path = preprocess_result['data_path']
+        n_samples = preprocess_result['n_samples']
+    else:
+        # Fallback for standalone testing
+        data_path = "/tmp/processed_data.csv"
+        n_samples = 1000
+    
+    # Simulate training
+    model_path = "/tmp/model.pkl"
+    accuracy = 0.92
+    
+    print(f"  - Training on {n_samples} samples")
+    print(f"  - Model accuracy: {accuracy}")
+    print(f"  - Saved model to {model_path}")
+    print("TRAIN_MODEL: Complete!")
+    print("=" * 50)
+    
+    return {'model_path': model_path, 'accuracy': accuracy}
 
-    # Set these inside the task so it's always correct at runtime
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000"))
-    mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "train_pipeline"))
-
-    with mlflow.start_run():
-
-    # If you use sklearn logging, ensure mlflow + sklearn is installed in Airflow container
-    import mlflow.sklearn
-
-    # --- Replace these with your real implementations ---
-    def train_sklearn_model(data_path):
-        # TODO: implement
-        from sklearn.linear_model import LogisticRegression
-        import pandas as pd
-
-        df = pd.read_csv(data_path)
-        # dummy example: assumes last column is label
-        X = df.iloc[:, :-1].values
-        y = df.iloc[:, -1].values
-        model = LogisticRegression(max_iter=200)
-        model.fit(X, y)
-        return model
-
-    def evaluate_model(model):
-        # TODO: implement
-        return 0.91
-    # -----------------------------------------------
-
-    with mlflow.start_run(run_name="train_model") as run:
-        mlflow.log_param("data_path", data_info["data_path"])
-        mlflow.log_param("n_samples", data_info["n_samples"])
-        mlflow.log_param("learning_rate", 0.01)
-
-        model = train_sklearn_model(data_info["data_path"])
-        accuracy = evaluate_model(model)
-
-        mlflow.log_metric("accuracy", accuracy)
-        mlflow.sklearn.log_model(model, artifact_path="model")
-
-        run_id = run.info.run_id
-
-    return {"run_id": run_id, "accuracy": accuracy}
 
 def register_model(**context):
-    """Task 3: Register model to MLflow registry."""
-    ti = context["ti"]
-    train_info = ti.xcom_pull(task_ids="train_model")
+    """Task 3: Simulate model registration using results from Task 2."""
+    print("=" * 50)
+    print("REGISTER_MODEL: Starting model registration...")
+    
+    # Pull results from upstream task via XCom
+    ti = context['ti']
+    train_result = ti.xcom_pull(task_ids='train_model')
+    
+    if train_result:
+        print(f"  - Received from train: {train_result}")
+        accuracy = train_result['accuracy']
+        model_path = train_result['model_path']
+    else:
+        accuracy = 0.92
+        model_path = "/tmp/model.pkl"
+    
+    # Simulate registration
+    model_version = "v1.0"
+    print(f"  - Model accuracy threshold check: {accuracy} >= 0.8 ✓")
+    print(f"  - Registered as version: {model_version}")
+    print("REGISTER_MODEL: Complete!")
+    print("=" * 50)
+    
+    return {'version': model_version, 'registered': True}
 
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
-    model_uri = f"runs:/{train_info['run_id']}/model"
-
-    # NOTE:
-    # MLflow *Model Registry* requires a database backend that supports it.
-    # SQLite often causes issues for registry usage in real setups.
-    result = mlflow.register_model(model_uri=model_uri, name="production-classifier")
-
-    return {"model_name": result.name, "version": result.version}
-
+# Define the DAG
 with DAG(
-    "train_pipeline",
+    dag_id='train_pipeline',
     default_args=default_args,
-    schedule_interval="@daily",
+    description='Simple ML training pipeline demonstrating DAG concepts',
+    schedule_interval='@daily',
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    tags=['mwe', 'ml', 'training'],
 ) as dag:
-
+    
+    # Define tasks
     preprocess = PythonOperator(
-        task_id="preprocess_data",
+        task_id='preprocess_data',
         python_callable=preprocess_data,
     )
-
+    
     train = PythonOperator(
-        task_id="train_model",
+        task_id='train_model',
         python_callable=train_model,
     )
-
+    
     register = PythonOperator(
-        task_id="register_model",
+        task_id='register_model',
         python_callable=register_model,
     )
-
+    
+    # Set dependencies using bitshift operator
+    # This creates: preprocess -> train -> register
     preprocess >> train >> register
