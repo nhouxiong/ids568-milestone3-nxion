@@ -24,11 +24,11 @@ jobs:
         run: pip install -r requirements.txt
       
       - name: Train model
-        run: python train.py
+        run: python src/train.py
       
       - name: Validate model
         run: |
-          python validate.py \
+          python src/model_validate.py \
             --min-accuracy 0.90 \
             --min-f1 0.85
       
