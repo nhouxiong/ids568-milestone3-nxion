@@ -5,11 +5,16 @@
 **Experiment:** ids568-milestone3  
 **Date:** 2026-03-02  
 
+
+![Successful Test](/Screenshots/Success_Test_Airflow.png)
+
 ---
 
 ## 1. Run Comparisons and Analysis
 
 Seven experiments were conducted using the Iris classification dataset (150 samples, 4 features). All runs used identical data with a stratified 80/20 train-test split (seed=42), isolating the effect of hyperparameter variation. Five successful runs with distinct configurations were selected for analysis.
+
+![Comparing Test](/Screenshots/Comparing_Test_MLflow.pngscreenshot.png)
 
 ### Results Summary
 
@@ -21,13 +26,20 @@ Seven experiments were conducted using the Iris classification dataset (150 samp
 | rare-donkey-380 | 100 | 5 | 2 | 0.9333 | 0.9333 | None |
 | silent-snipe-843 | 50 | 3 | 2 | 0.9000 | 0.8997 | None |
 
+![Versions of tests](/Screenshots/Versions_of_Test_MLflow.png)
+
+
 ### Key Observations
 
 **Estimator count and depth trade-off:** The two top-performing runs (dashing-zebra-693 and skittish-tern-823) both achieved 96.67% accuracy but with different configurations. dashing-zebra used 200 estimators with deeper trees (max_depth=7), while skittish-tern used 300 estimators with shallower trees (max_depth=4) but higher min_samples_split. This shows that the model can reach the same accuracy through either deeper individual trees or more constrained but numerous trees.
 
+![Best Test](/Screenshots/Best_Test.png)
+
 **Diminishing returns at lower complexity:** silent-snipe-843 (50 estimators, max_depth=3) scored noticeably lower at 90.0% accuracy, confirming that the Iris dataset benefits from moderate model complexity. The jump from 50 to 100 estimators improved accuracy by 3.3 percentage points, but going from 100 to 200+ only added another 3.3 points.
 
 **Stability of mid-range configurations:** beautiful-bear-860 and rare-donkey-380 both used 100 estimators with max_depth=5 and achieved identical results (93.33%), demonstrating reproducibility of the training pipeline when given the same hyperparameters.
+
+![Runs](/Screenshots/Runs_MLflow.png)
 
 ---
 
