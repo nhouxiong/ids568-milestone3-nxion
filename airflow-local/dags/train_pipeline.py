@@ -1,121 +1,82 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
+def on_failure_callback(context):
+    ti = context.get("task_instance")
+    print(
+        f"Task failed: dag={ti.dag_id} task={ti.task_id} "
+        f"run_id={context.get('run_id')} try={ti.try_number}"
+    )
 
-# Default arguments applied to all tasks
 default_args = {
-    'owner': 'mlops',
-    'depends_on_past': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=1),
+    "owner": "mlops",
+    "depends_on_past": False,
+    "retries": 2,
+    "retry_delay": timedelta(minutes=2),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": timedelta(minutes=15),
+    "execution_timeout": timedelta(hours=1),
+    "on_failure_callback": on_failure_callback,
 }
 
+PROJECT_DIR = "/opt/airflow/project"
 
-def preprocess_data(**context):
-    """Task 1: Simulate data preprocessing."""
-    print("=" * 50)
-    print("PREPROCESS_DATA: Starting data preprocessing...")
-    
-    # Simulate preprocessing work
-    n_samples = 1000
-    data_path = "/tmp/processed_data.csv"
-    
-    print(f"  - Loaded {n_samples} samples")
-    print(f"  - Cleaned missing values")
-    print(f"  - Saved to {data_path}")
-    print("PREPROCESS_DATA: Complete!")
-    print("=" * 50)
-    
-    # Return value is automatically pushed to XCom
-    return {'data_path': data_path, 'n_samples': n_samples}
-
-
-def train_model(**context):
-    """Task 2: Simulate model training using data from Task 1."""
-    print("=" * 50)
-    print("TRAIN_MODEL: Starting model training...")
-    
-    # Pull results from upstream task via XCom
-    ti = context['ti']
-    preprocess_result = ti.xcom_pull(task_ids='preprocess_data')
-    
-    if preprocess_result:
-        print(f"  - Received from preprocess: {preprocess_result}")
-        data_path = preprocess_result['data_path']
-        n_samples = preprocess_result['n_samples']
-    else:
-        # Fallback for standalone testing
-        data_path = "/tmp/processed_data.csv"
-        n_samples = 1000
-    
-    # Simulate training
-    model_path = "/tmp/model.pkl"
-    accuracy = 0.92
-    
-    print(f"  - Training on {n_samples} samples")
-    print(f"  - Model accuracy: {accuracy}")
-    print(f"  - Saved model to {model_path}")
-    print("TRAIN_MODEL: Complete!")
-    print("=" * 50)
-    
-    return {'model_path': model_path, 'accuracy': accuracy}
-
-
-def register_model(**context):
-    """Task 3: Simulate model registration using results from Task 2."""
-    print("=" * 50)
-    print("REGISTER_MODEL: Starting model registration...")
-    
-    # Pull results from upstream task via XCom
-    ti = context['ti']
-    train_result = ti.xcom_pull(task_ids='train_model')
-    
-    if train_result:
-        print(f"  - Received from train: {train_result}")
-        accuracy = train_result['accuracy']
-        model_path = train_result['model_path']
-    else:
-        accuracy = 0.92
-        model_path = "/tmp/model.pkl"
-    
-    # Simulate registration
-    model_version = "v1.0"
-    print(f"  - Model accuracy threshold check: {accuracy} >= 0.8 ✓")
-    print(f"  - Registered as version: {model_version}")
-    print("REGISTER_MODEL: Complete!")
-    print("=" * 50)
-    
-    return {'version': model_version, 'registered': True}
-
-
-# Define the DAG
 with DAG(
-    dag_id='train_pipeline',
+    dag_id="train_pipeline",
     default_args=default_args,
-    description='Simple ML training pipeline demonstrating DAG concepts',
-    schedule_interval='@daily',
+    description="Preprocess -> Train -> Register",
+    schedule=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=['mwe', 'ml', 'training'],
+    tags=["ml", "ids568"],
 ) as dag:
-    
-    # Define tasks
-    preprocess = PythonOperator(
-        task_id='preprocess_data',
-        python_callable=preprocess_data,
+
+    preprocess = BashOperator(
+        task_id="preprocess_data",
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "python src/preprocess.py "
+            "--out-dir data/processed "
+            "--seed 42 "
+            "--test-size 0.2"
+        ),
+        retries=2,
+        retry_delay=timedelta(minutes=1),
     )
-    
-    train = PythonOperator(
-        task_id='train_model',
-        python_callable=train_model,
+
+    train = BashOperator(
+        task_id="train_model",
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "python src/train.py "
+            "--experiment-name ids568-milestone3 "
+            "--manifest-path data/processed/manifest.json "
+            "--metrics-out metrics.json "
+            "--n-estimators 100 "
+            "--max-depth 5"
+        ),
+        env={
+            "MLFLOW_TRACKING_URI": "http://mlflow:5000",
+        },
+        retries=3,
+        retry_delay=timedelta(minutes=2),
     )
-    
-    register = PythonOperator(
-        task_id='register_model',
-        python_callable=register_model,
+
+    register = BashOperator(
+        task_id="register_model",
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "python src/register.py "
+            "--model-name sklearn_classifier "
+            "--metrics-file metrics.json "
+            "--run-id-file artifacts/run_id.txt"
+        ),
+        env={
+            "MLFLOW_TRACKING_URI": "http://mlflow:5000",
+        },
+        retries=2,
+        retry_delay=timedelta(minutes=1),
     )
-    
-    # Set dependencies using bitshift operator
-    # This creates: preprocess -> train -> register
+
     preprocess >> train >> register

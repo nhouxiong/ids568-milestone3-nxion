@@ -3,8 +3,12 @@ name: Train and Validate Model
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'requirements.txt'
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   train:
@@ -23,21 +27,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
-      - name: Train model
-        run: python src/train.py
-      
-      - name: Validate model
+      - name: Run preprocessing
+        run: python src/preprocess.py --out-dir data/processed --seed 42 --test-size 0.2
+
+      - name: Train model and log to MLflow
         run: |
-          python src/model_validate.py \
+          python src/train.py \
+            --experiment-name ci-training \
+            --manifest-path data/processed/manifest.json \
+            --metrics-out metrics.json \
+            --n-estimators 100 \
+            --max-depth 5
+
+      - name: Validate model (quality gate)
+        run: |
+          python src/model_validation.py \
             --min-accuracy 0.90 \
-            --min-f1 0.85
-      
-      - name: Upload validation report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-report
-          path: validation_report.json
+            --min-f1 0.85 \
+            --metrics-file metrics.json
       
       - name: Upload metrics
         if: always()
@@ -45,3 +52,10 @@ jobs:
         with:
           name: metrics
           path: metrics.json
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: validation_report.json

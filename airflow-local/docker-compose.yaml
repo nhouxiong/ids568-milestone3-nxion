@@ -31,10 +31,12 @@ x-airflow-common:
     MLFLOW_TRACKING_URI: "http://mlflow:5000"
     MLFLOW_EXPERIMENT_NAME: "train_pipeline"
   volumes:
+    - ..:/opt/airflow/project
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - mlflow-data:/mlruns
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -291,20 +293,33 @@ services:
 
   mlflow:
     image: python:3.11-slim
-    container_name: mlflow
-    command: >
-      sh -lc "pip install --no-cache-dir mlflow &&
-              mlflow server
-              --host 0.0.0.0
-              --port 5000
-              --backend-store-uri sqlite:////mlflow/mlflow.db
-              --default-artifact-root /mlflow/artifacts"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        pip install --no-cache-dir mlflow==2.14.3
+        mkdir -p /mlflow/artifacts
+        cat > /tmp/run.py << 'EOF'
+        import subprocess, sys
+        sys.exit(subprocess.call([
+            "gunicorn",
+            "--bind", "0.0.0.0:5000",
+            "--workers", "2",
+            "--timeout", "120",
+            "mlflow.server:app"
+        ], env={
+            **__import__('os').environ,
+            "MLFLOW_BACKEND_STORE_URI": "sqlite:////mlflow/mlflow.db",
+            "MLFLOW_ARTIFACTS_DESTINATION": "/mlflow/artifacts",
+            "MLFLOW_DEFAULT_ARTIFACT_ROOT": "mlflow-artifacts:/",
+            "MLFLOW_SERVE_ARTIFACTS": "true",
+        }))
+        EOF
+        exec python /tmp/run.py
     ports:
-      - "127.0.0.1:5000:5000"   # host access; avoids some Windows/WSL weirdness
+      - "5001:5000"
     volumes:
       - mlflow-data:/mlflow
     restart: always
-    
 volumes:
   postgres-db-volume:
   mlflow-data:
